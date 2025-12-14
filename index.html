@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhận diện Cảm xúc</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+
+        #preview-container {
+            margin: 20px auto;
+            width: 300px;
+            height: 300px;
+            border: 2px dashed #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #preview-image {
+            max-width: 100%;
+            max-height: 100%;
+            display: none;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .loading {
+            color: blue;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Tải lên ảnh khuôn mặt của bạn</h1>
+
+    <input type="file" id="imageInput" accept="image/*">
+    <br>
+    <div id="preview-container">
+        <span id="placeholder-text">Ảnh xem trước sẽ hiện ở đây</span>
+        <img id="preview-image" src="#" alt="Preview">
+    </div>
+    <br>
+    <button onclick="uploadAndAnalyze()">Phân tích Cảm xúc</button>
+
+    <div id="result"></div>
+
+    <script>
+        // JavaScript để xử lý sự kiện
+        const imageInput = document.getElementById('imageInput');
+        const previewImage = document.getElementById('preview-image');
+        const placeholderText = document.getElementById('placeholder-text');
+        const resultDiv = document.getElementById('result');
+
+        // Hiển thị ảnh xem trước khi chọn file
+        imageInput.onchange = evt => {
+            const [file] = imageInput.files
+            if (file) {
+                previewImage.src = URL.createObjectURL(file);
+                previewImage.style.display = "block";
+                placeholderText.style.display = "none";
+                resultDiv.innerHTML = ""; // Xóa kết quả cũ
+            }
+        }
+
+        // Hàm gửi ảnh lên server
+        async function uploadAndAnalyze() {
+            if (imageInput.files.length === 0) {
+                alert("Vui lòng chọn ảnh trước!");
+                return;
+            }
+
+            resultDiv.innerHTML = '<span class="loading">Đang phân tích... Vui lòng chờ (Lần đầu có thể hơi lâu)</span>';
+
+            // Tạo form data để gửi file
+            let formData = new FormData();
+            formData.append("file", imageInput.files[0]);
+
+            try {
+                // Gọi API backend
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<span class="error">Lỗi: ${data.error}</span>`;
+                } else {
+                    const translate = {
+                        "angry": "Giận dữ", "disgust": "Ghê tởm", "fear": "Sợ hãi",
+                        "happy": "Vui vẻ", "sad": "Buồn bã", "surprise": "Ngạc nhiên", "neutral": "Bình thường"
+                    };
+                    const vnEmotion = translate[data.dominant_emotion] || data.dominant_emotion;
+
+
+                    resultDiv.innerHTML = `Cảm xúc chính: <span style="color: green;">${vnEmotion.toUpperCase()}</span>`;
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<span class="error">Lỗi kết nối đến server!</span>`;
+            }
+
+            if (data.error) {
+                resultDiv.innerHTML = `<span class="error">Lỗi: ${data.error}</span>`;
+            } else {
+                resultDiv.innerHTML = `
+        <p>Kết quả: <b style="color: #d9534f; font-size: 30px;">${data.dominant_emotion}</b></p>
+        <p style="font-size: 16px; color: #555;">Độ tin cậy: ${data.confidence}</p>
+    `;
+            }
+        }
+    </script>
+</body>
+
+</html>
